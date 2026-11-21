@@ -1,10 +1,12 @@
 package com.bapehack;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,24 +22,23 @@ public class BapeHackClient implements ClientModInitializer {
     public static boolean hideMinecarts = false;
     public static boolean noMinecartHit = false;
 
-    private static boolean openConfig = false;
+    private static KeyBinding menuKey;
 
     @Override
     public void onInitializeClient() {
         loadConfig();
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
-                dispatcher.register(ClientCommandManager.literal("bh")
-                        .then(ClientCommandManager.literal("config")
-                                .executes(ctx -> {
-                                    openConfig = true;
-                                    return 1;
-                                }))));
+        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.bapehack.menu",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_RIGHT_CONTROL,
+                "BapeHack"));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (openConfig) {
-                openConfig = false;
-                client.setScreen(new BapeHackScreen());
+            while (menuKey.wasPressed()) {
+                if (client.currentScreen == null) {
+                    client.setScreen(new BapeHackScreen());
+                }
             }
         });
     }
