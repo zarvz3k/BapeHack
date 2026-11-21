@@ -18,11 +18,20 @@ jobs:
         uses: actions/setup-java@v5
         with:
           java-version: '25'
-          distribution: 'microsoft'
+          distribution: 'temurin'
+      - name: setup gradle (cache dependencies)
+        uses: gradle/actions/setup-gradle@v6
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
-      - name: build
-        run: ./gradlew build
+      - name: build (retry on network errors)
+        run: |
+          for attempt in 1 2 3; do
+            echo "Build attempt $attempt"
+            ./gradlew build && exit 0
+            echo "Build failed, waiting before retry..."
+            sleep 60
+          done
+          exit 1
       - name: capture build artifacts
         uses: actions/upload-artifact@v7
         with:
