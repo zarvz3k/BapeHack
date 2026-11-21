@@ -12,7 +12,7 @@ public class VehicleEntityMixin {
     // wagon nie jest celem: bijesz, otwierasz skrzynki i piece "przez" niego
     @Inject(method = "canHit", at = @At("HEAD"), cancellable = true)
     private void bh$noMinecartHit(CallbackInfoReturnable<Boolean> cir) {
-        if (BapeHackClient.noMinecartHit) {
+        if (BapeHackClient.hideCartEnabled && BapeHackClient.noMinecartHit) {
             cir.setReturnValue(false);
         }
     }
