@@ -1,38 +1,25 @@
 {
-	"schemaVersion": 1,
-	"id": "bapehack",
-	"version": "${version}",
-	"name": "BapeHack",
-	"description": "piter w strachu",
-	"authors": [
-		"Zarazek"
-	],
-	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
-	},
-	"license": "CC0-1.0",
-	"icon": "assets/bapehack/icon.png",
-	"environment": "*",
-	"entrypoints": {
-		"main": [
-			"com.bapehack.BapeHack"
-		],
-		"client": [
-			"com.bapehack.client.BapeHackClient"
-		]
-	},
-	"mixins": [
-		"bapehack.mixins.json",
-		{
-			"config": "bapehack.client.mixins.json",
-			"environment": "client"
-		}
-	],
-	"depends": {
-		"fabricloader": ">=0.20.1",
-		"minecraft": "~1.21.4",
-		"java": ">=21",
-		"fabric-api": "*"
-	}
+  "schemaVersion": 1,
+  "id": "bapehack",
+  "version": "${version}",
+  "name": "BapeHack",
+  "description": "Wagony",
+  "authors": ["zarazek"],
+  "license": "CC0-1.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.bapehack.BapeHackClient"]
+  },
+  "mixins": [
+    {
+      "config": "bapehack.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
 }
