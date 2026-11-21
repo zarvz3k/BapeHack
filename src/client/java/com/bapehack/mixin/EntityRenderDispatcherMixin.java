@@ -15,7 +15,7 @@ public class EntityRenderDispatcherMixin {
     @Inject(method = "shouldRender", at = @At("HEAD"), cancellable = true)
     private <E extends Entity> void bh$hideMinecarts(E entity, Frustum frustum, double x, double y, double z,
                                                      CallbackInfoReturnable<Boolean> cir) {
-        if (BapeHackClient.hideMinecarts && entity instanceof AbstractMinecartEntity) {
+        if (BapeHackClient.hideCartEnabled && BapeHackClient.hideMinecarts && entity instanceof AbstractMinecartEntity) {
             cir.setReturnValue(false);
         }
     }
