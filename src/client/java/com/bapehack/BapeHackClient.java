@@ -3,9 +3,12 @@ package com.bapehack;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.util.ActionResult;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -21,6 +24,9 @@ public class BapeHackClient implements ClientModInitializer {
     public static boolean hideCartEnabled = false;
     public static boolean hideMinecarts = false;
     public static boolean noMinecartHit = false;
+
+    // modul AntyItemFrame
+    public static boolean antyItemFrameEnabled = false;
 
     private static KeyBinding menuKey;
 
@@ -41,6 +47,17 @@ public class BapeHackClient implements ClientModInitializer {
                 }
             }
         });
+
+        // AntyItemFrame: nie mozna wlozyc przedmiotu do pustej ramki
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (!antyItemFrameEnabled || !world.isClient()) return ActionResult.PASS;
+            if (entity instanceof ItemFrameEntity frame
+                    && frame.getHeldItemStack().isEmpty()
+                    && !player.getStackInHand(hand).isEmpty()) {
+                return ActionResult.FAIL;
+            }
+            return ActionResult.PASS;
+        });
     }
 
     // ---------------- config (plik) ----------------
@@ -54,6 +71,7 @@ public class BapeHackClient implements ClientModInitializer {
         p.setProperty("hideCartEnabled", String.valueOf(hideCartEnabled));
         p.setProperty("hideMinecarts", String.valueOf(hideMinecarts));
         p.setProperty("noMinecartHit", String.valueOf(noMinecartHit));
+        p.setProperty("antyItemFrameEnabled", String.valueOf(antyItemFrameEnabled));
         try (OutputStream out = Files.newOutputStream(configPath())) {
             p.store(out, "BapeHack");
         } catch (IOException ignored) {
@@ -72,5 +90,6 @@ public class BapeHackClient implements ClientModInitializer {
         hideCartEnabled = Boolean.parseBoolean(p.getProperty("hideCartEnabled", "false").trim());
         hideMinecarts = Boolean.parseBoolean(p.getProperty("hideMinecarts", "false").trim());
         noMinecartHit = Boolean.parseBoolean(p.getProperty("noMinecartHit", "false").trim());
+        antyItemFrameEnabled = Boolean.parseBoolean(p.getProperty("antyItemFrameEnabled", "false").trim());
     }
 }
