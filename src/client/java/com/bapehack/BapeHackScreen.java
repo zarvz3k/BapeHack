@@ -87,6 +87,7 @@ public class BapeHackScreen extends Screen {
         if (!settings) {
             c.drawText(this.textRenderer, "BapeHack", x + 12, y + 12, TEXT, true);
 
+            // HideCart (lewa polowa, ze strzalka bo ma ustawienia)
             int cx = cardX(0);
             int cy = cardY(0);
             int w = cardW(false);
@@ -95,6 +96,15 @@ public class BapeHackScreen extends Screen {
             c.drawText(this.textRenderer, "HideCart", cx + 10, cy + 11, TEXT, false);
             c.drawText(this.textRenderer, ">", cx + w - 46, cy + 11, TEXT_DIM, false);
             toggle(c, cx + w - 36, cy + 9, BapeHackClient.hideCartEnabled);
+
+            // AntyItemFrame (prawa polowa, bez strzalki)
+            int ax = cardX(1);
+            int ay = cardY(0);
+            int aw = cardW(false);
+            boolean ahov = in(mx, my, ax, ay, aw, CH);
+            rrect(c, ax, ay, aw, CH, 6, ahov ? CARD_HOVER : CARD);
+            c.drawText(this.textRenderer, "AntyItemFrame", ax + 10, ay + 11, TEXT, false);
+            toggle(c, ax + aw - 36, ay + 9, BapeHackClient.antyItemFrameEnabled);
         } else {
             boolean backHov = in(mx, my, x + 8, y + 8, 50, 16);
             c.drawText(this.textRenderer, "< Wróć", x + 12, y + 12, backHov ? TEXT : TEXT_DIM, false);
@@ -120,6 +130,14 @@ public class BapeHackScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         if (closing) return true;
         if (!settings) {
+            // AntyItemFrame: tylko lewy klik, prawy nic nie robi
+            if (in(mx, my, cardX(1), cardY(0), cardW(false), CH)) {
+                if (button == 0) {
+                    BapeHackClient.antyItemFrameEnabled = !BapeHackClient.antyItemFrameEnabled;
+                }
+                return true;
+            }
+            // HideCart: lewy = wlacz, prawy = ustawienia
             if (in(mx, my, cardX(0), cardY(0), cardW(false), CH)) {
                 if (button == 0) {
                     BapeHackClient.hideCartEnabled = !BapeHackClient.hideCartEnabled;
