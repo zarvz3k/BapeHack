@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "EntityRenderDispatcherMixin",
-    "VehicleEntityMixin"
+    "VehicleEntityMixin",
+    "TextVisitFactoryMixin"
   ],
   "injectors": {
     "defaultRequire": 1
