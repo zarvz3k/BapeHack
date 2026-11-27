@@ -5,10 +5,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.ActionResult;
 import org.lwjgl.glfw.GLFW;
 
@@ -37,6 +40,10 @@ public class BapeHackClient implements ClientModInitializer {
     public static String nameReplace = "";
     private static volatile Pattern namePattern;
     private static volatile String patternFor = "";
+
+    // modul SwingThrough
+    public static boolean swingThroughEnabled = false;
+    public static boolean swingScan = false;
 
     private static KeyBinding menuKey;
 
@@ -68,6 +75,19 @@ public class BapeHackClient implements ClientModInitializer {
             }
             return ActionResult.PASS;
         });
+    }
+
+    // SwingThrough: czy w tym raycascie pomijac bloki (tylko z mieczem/siekiera)
+    public static void updateSwingScan() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        swingScan = swingThroughEnabled && mc.player != null
+                && (mc.player.getMainHandStack().isIn(ItemTags.SWORDS)
+                || mc.player.getMainHandStack().isIn(ItemTags.AXES));
+    }
+
+    public static boolean isSwingBlock(BlockState s) {
+        return s.isOf(Blocks.COBWEB) || s.isOf(Blocks.SHORT_GRASS) || s.isOf(Blocks.TALL_GRASS)
+                || s.isOf(Blocks.FERN) || s.isOf(Blocks.LARGE_FERN);
     }
 
     // NameProtect: podmiana nicku w kazdym rysowanym tekscie
@@ -104,6 +124,7 @@ public class BapeHackClient implements ClientModInitializer {
         p.setProperty("nameProtectEnabled", String.valueOf(nameProtectEnabled));
         p.setProperty("nameHide", nameHide);
         p.setProperty("nameReplace", nameReplace);
+        p.setProperty("swingThroughEnabled", String.valueOf(swingThroughEnabled));
         try (OutputStream out = Files.newOutputStream(configPath())) {
             p.store(out, "BapeHack");
         } catch (IOException ignored) {
@@ -126,5 +147,6 @@ public class BapeHackClient implements ClientModInitializer {
         nameProtectEnabled = Boolean.parseBoolean(p.getProperty("nameProtectEnabled", "false").trim());
         nameHide = p.getProperty("nameHide", "");
         nameReplace = p.getProperty("nameReplace", "");
+        swingThroughEnabled = Boolean.parseBoolean(p.getProperty("swingThroughEnabled", "false").trim());
     }
 }
