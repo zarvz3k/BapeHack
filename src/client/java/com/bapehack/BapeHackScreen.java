@@ -5,6 +5,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
+import org.lwjgl.glfw.GLFW;
 
 public class BapeHackScreen extends Screen {
 
@@ -25,6 +26,7 @@ public class BapeHackScreen extends Screen {
 
     // 0 = glowna, 1 = ustawienia HideCart, 2 = ustawienia NameProtect
     private int page = 0;
+    private int bindingId = -1; // modul, ktoremu wlasnie ustawiamy bind
     private boolean closing = false;
     private long animStart = Util.getMeasuringTimeMs();
     private int offY = -2000;
@@ -43,6 +45,11 @@ public class BapeHackScreen extends Screen {
     private int cardX(int col) { return px() + 10 + col * ((PW - 30) / 2 + 10); }
     private int cardY(int row) { return py() + 36 + row * 36; }
     private int cardW(boolean full) { return full ? PW - 20 : (PW - 30) / 2; }
+
+    // modul id -> kolumna id % 2, wiersz id / 2
+    private int modX(int id) { return cardX(id % 2); }
+    private int modY(int id) { return cardY(id / 2); }
+    private static boolean hasSettings(int id) { return id == 0 || id == 2; }
 
     private static boolean in(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
@@ -117,7 +124,30 @@ public class BapeHackScreen extends Screen {
         updateAnim();
         hideField.setY(py() + 46);
         replaceField.setY(py() + 84);
-        super.render(c, mx, my, delta); // wywoluje renderBackground, potem pola
+        super.render(c, mx, my, delta);
+    }
+
+    // karta modulu na glownej stronie
+    private void moduleCard(DrawContext c, int mx, int my, int id) {
+        int x = modX(id), y = modY(id), w = cardW(false);
+        rrect(c, x, y, w, CH, 6, in(mx, my, x, y, w, CH) ? CARD_HOVER : CARD);
+
+        boolean showBind = bindingId == id || BapeHackClient.binds[id] >= 0;
+        c.drawText(this.textRenderer, BapeHackClient.MODULE_NAMES[id], x + 10, y + (showBind ? 6 : 11), TEXT, false);
+
+        if (showBind) {
+            String b = bindingId == id ? "Bind:" : "Bind: " + BapeHackClient.keyName(BapeHackClient.binds[id]);
+            c.getMatrices().push();
+            c.getMatrices().translate(x + 10, y + 18, 0);
+            c.getMatrices().scale(0.75f, 0.75f, 1.0f);
+            c.drawText(this.textRenderer, b, 0, 0, TEXT_DIM, false);
+            c.getMatrices().pop();
+        }
+
+        if (hasSettings(id)) {
+            c.drawText(this.textRenderer, ">", x + w - 46, y + 11, TEXT_DIM, false);
+        }
+        toggle(c, x + w - 36, y + 9, BapeHackClient.isEnabled(id));
     }
 
     // panel i napisy pod polami tekstowymi
@@ -131,32 +161,9 @@ public class BapeHackScreen extends Screen {
 
         if (page == 0) {
             c.drawText(this.textRenderer, "BapeHack", x + 12, y + 12, TEXT, true);
-
-            // HideCart (ma ustawienia, wiec strzalka)
-            int cx = cardX(0), cy = cardY(0), w = cardW(false);
-            rrect(c, cx, cy, w, CH, 6, in(mx, my, cx, cy, w, CH) ? CARD_HOVER : CARD);
-            c.drawText(this.textRenderer, "HideCart", cx + 10, cy + 11, TEXT, false);
-            c.drawText(this.textRenderer, ">", cx + w - 46, cy + 11, TEXT_DIM, false);
-            toggle(c, cx + w - 36, cy + 9, BapeHackClient.hideCartEnabled);
-
-            // AntyItemFrame (bez strzalki)
-            int ax = cardX(1), ay = cardY(0), aw = cardW(false);
-            rrect(c, ax, ay, aw, CH, 6, in(mx, my, ax, ay, aw, CH) ? CARD_HOVER : CARD);
-            c.drawText(this.textRenderer, "AntyItemFrame", ax + 10, ay + 11, TEXT, false);
-            toggle(c, ax + aw - 36, ay + 9, BapeHackClient.antyItemFrameEnabled);
-
-            // NameProtect (pod HideCart, ze strzalka)
-            int nx = cardX(0), ny = cardY(1), nw = cardW(false);
-            rrect(c, nx, ny, nw, CH, 6, in(mx, my, nx, ny, nw, CH) ? CARD_HOVER : CARD);
-            c.drawText(this.textRenderer, "NameProtect", nx + 10, ny + 11, TEXT, false);
-            c.drawText(this.textRenderer, ">", nx + nw - 46, ny + 11, TEXT_DIM, false);
-            toggle(c, nx + nw - 36, ny + 9, BapeHackClient.nameProtectEnabled);
-
-            // SwingThrough (prawa polowa, drugi rzad, bez strzalki)
-            int sx = cardX(1), sy = cardY(1), sw = cardW(false);
-            rrect(c, sx, sy, sw, CH, 6, in(mx, my, sx, sy, sw, CH) ? CARD_HOVER : CARD);
-            c.drawText(this.textRenderer, "SwingThrough", sx + 10, sy + 11, TEXT, false);
-            toggle(c, sx + sw - 36, sy + 9, BapeHackClient.swingThroughEnabled);
+            for (int id = 0; id < 4; id++) {
+                moduleCard(c, mx, my, id);
+            }
         } else if (page == 1) {
             header(c, mx, my, "HideCart");
             row(c, mx, my, 0, "Ukryj wagony", BapeHackClient.hideMinecarts);
@@ -189,36 +196,21 @@ public class BapeHackScreen extends Screen {
         if (closing) return true;
 
         if (page == 0) {
-            if (in(mx, my, cardX(1), cardY(1), cardW(false), CH)) {
+            for (int id = 0; id < 4; id++) {
+                if (!in(mx, my, modX(id), modY(id), cardW(false), CH)) continue;
                 if (button == 0) {
-                    BapeHackClient.swingThroughEnabled = !BapeHackClient.swingThroughEnabled;
-                }
-                return true;
-            }
-            if (in(mx, my, cardX(1), cardY(0), cardW(false), CH)) {
-                if (button == 0) {
-                    BapeHackClient.antyItemFrameEnabled = !BapeHackClient.antyItemFrameEnabled;
-                }
-                return true;
-            }
-            if (in(mx, my, cardX(0), cardY(0), cardW(false), CH)) {
-                if (button == 0) {
-                    BapeHackClient.hideCartEnabled = !BapeHackClient.hideCartEnabled;
-                } else if (button == 1) {
-                    page = 1;
+                    bindingId = -1;
+                    BapeHackClient.toggle(id);
+                } else if (button == 2) {
+                    bindingId = id;               // srodkowy przycisk: tryb bindowania
+                } else if (button == 1 && hasSettings(id)) {
+                    bindingId = -1;
+                    page = id == 0 ? 1 : 2;
                     updateFields();
                 }
                 return true;
             }
-            if (in(mx, my, cardX(0), cardY(1), cardW(false), CH)) {
-                if (button == 0) {
-                    BapeHackClient.nameProtectEnabled = !BapeHackClient.nameProtectEnabled;
-                } else if (button == 1) {
-                    page = 2;
-                    updateFields();
-                }
-                return true;
-            }
+            bindingId = -1; // klik poza kartami anuluje bindowanie
         } else {
             if (button == 1 || (button == 0 && in(mx, my, px() + 8, py() + 8, 50, 16))) {
                 page = 0;
@@ -241,7 +233,19 @@ public class BapeHackScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 344) { // RightControl
+        // tryb bindowania ma pierwszenstwo
+        if (bindingId >= 0) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                // anulowanie, bind bez zmian
+            } else if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+                BapeHackClient.binds[bindingId] = -1;
+            } else {
+                BapeHackClient.binds[bindingId] = keyCode;
+            }
+            bindingId = -1;
+            return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_RIGHT_CONTROL) {
             this.close();
             return true;
         }
