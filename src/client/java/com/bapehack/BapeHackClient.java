@@ -3,16 +3,18 @@ package com.bapehack;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -25,6 +27,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class BapeHackClient implements ClientModInitializer {
+
+    // moduly: 0 HideCart, 1 AntyItemFrame, 2 NameProtect, 3 SwingThrough
+    public static final String[] MODULE_NAMES = {"HideCart", "AntyItemFrame", "NameProtect", "SwingThrough"};
+    public static final int[] binds = {-1, -1, -1, -1};   // kod klawisza GLFW, -1 = brak
+    private static final boolean[] prevDown = new boolean[4];
 
     // modul HideCart
     public static boolean hideCartEnabled = false;
@@ -45,6 +52,12 @@ public class BapeHackClient implements ClientModInitializer {
     public static boolean swingThroughEnabled = false;
     public static boolean swingScan = false;
 
+    // powiadomienie nad sercami
+    private static final long NOTICE_MS = 500;
+    private static String noticeName = null;
+    private static boolean noticeOn = false;
+    private static long noticeStart = 0;
+
     private static KeyBinding menuKey;
 
     @Override
@@ -63,7 +76,23 @@ public class BapeHackClient implements ClientModInitializer {
                     client.setScreen(new BapeHackScreen());
                 }
             }
+
+            // wlasne bindy modulow
+            long handle = client.getWindow().getHandle();
+            for (int i = 0; i < binds.length; i++) {
+                if (binds[i] < 0) {
+                    prevDown[i] = false;
+                    continue;
+                }
+                boolean down = InputUtil.isKeyPressed(handle, binds[i]);
+                if (down && !prevDown[i] && client.currentScreen == null) {
+                    toggle(i);
+                }
+                prevDown[i] = down;
+            }
         });
+
+        HudRenderCallback.EVENT.register((ctx, tickCounter) -> renderNotice(ctx));
 
         // AntyItemFrame: nie mozna wlozyc przedmiotu do pustej ramki
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
@@ -77,7 +106,65 @@ public class BapeHackClient implements ClientModInitializer {
         });
     }
 
-    // SwingThrough: pomijaj bloki w raycascie niezaleznie od przedmiotu w rece
+    // ---------------- moduly ----------------
+
+    public static boolean isEnabled(int id) {
+        return switch (id) {
+            case 0 -> hideCartEnabled;
+            case 1 -> antyItemFrameEnabled;
+            case 2 -> nameProtectEnabled;
+            default -> swingThroughEnabled;
+        };
+    }
+
+    public static void toggle(int id) {
+        boolean now = !isEnabled(id);
+        switch (id) {
+            case 0 -> hideCartEnabled = now;
+            case 1 -> antyItemFrameEnabled = now;
+            case 2 -> nameProtectEnabled = now;
+            default -> swingThroughEnabled = now;
+        }
+        noticeName = MODULE_NAMES[id];
+        noticeOn = now;
+        noticeStart = Util.getMeasuringTimeMs();
+    }
+
+    public static String keyName(int code) {
+        return InputUtil.Type.KEYSYM.createFromCode(code).getLocalizedText().getString();
+    }
+
+    // ---------------- powiadomienie ----------------
+
+    private static void renderNotice(DrawContext ctx) {
+        if (noticeName == null) return;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || mc.options.hudHidden) return;
+
+        float t = (Util.getMeasuringTimeMs() - noticeStart) / (float) NOTICE_MS;
+        if (t >= 1.0f) {
+            noticeName = null;
+            return;
+        }
+        int a = (int) (255 * (1.0f - t));
+        if (a < 12) return; // vanilla traktuje bardzo male alfa jako pelne krycie
+
+        int white = (a << 24) | 0xFFFFFF;
+        int state = (a << 24) | (noticeOn ? 0x55FF55 : 0xFF5555);
+
+        String left = noticeName + " - ";
+        String right = noticeOn ? "ON" : "OFF";
+        int total = mc.textRenderer.getWidth(left) + mc.textRenderer.getWidth(right);
+        int x = (ctx.getScaledWindowWidth() - total) / 2;
+        int y = ctx.getScaledWindowHeight() - 72; // nad sercami
+
+        ctx.drawTextWithShadow(mc.textRenderer, left, x, y, white);
+        ctx.drawTextWithShadow(mc.textRenderer, right, x + mc.textRenderer.getWidth(left), y, state);
+    }
+
+    // ---------------- SwingThrough ----------------
+
+    // pomijaj bloki w raycascie niezaleznie od przedmiotu w rece
     public static void updateSwingScan() {
         MinecraftClient mc = MinecraftClient.getInstance();
         swingScan = swingThroughEnabled && mc.player != null;
@@ -88,14 +175,14 @@ public class BapeHackClient implements ClientModInitializer {
                 || s.isOf(Blocks.FERN) || s.isOf(Blocks.LARGE_FERN);
     }
 
-    // NameProtect: podmiana nicku w kazdym rysowanym tekscie
+    // ---------------- NameProtect ----------------
+
     public static String protectNames(String s) {
         if (!nameProtectEnabled || s == null) return s;
         String hide = nameHide;
         if (hide.isEmpty() || s.length() < hide.length()) return s;
 
         MinecraftClient mc = MinecraftClient.getInstance();
-        // w menu BapeHack pokazujemy prawdziwy tekst (pola do wpisywania)
         if (mc != null && mc.currentScreen instanceof BapeHackScreen) return s;
 
         Pattern p = namePattern;
@@ -123,6 +210,9 @@ public class BapeHackClient implements ClientModInitializer {
         p.setProperty("nameHide", nameHide);
         p.setProperty("nameReplace", nameReplace);
         p.setProperty("swingThroughEnabled", String.valueOf(swingThroughEnabled));
+        for (int i = 0; i < binds.length; i++) {
+            p.setProperty("bind" + i, String.valueOf(binds[i]));
+        }
         try (OutputStream out = Files.newOutputStream(configPath())) {
             p.store(out, "BapeHack");
         } catch (IOException ignored) {
@@ -146,5 +236,12 @@ public class BapeHackClient implements ClientModInitializer {
         nameHide = p.getProperty("nameHide", "");
         nameReplace = p.getProperty("nameReplace", "");
         swingThroughEnabled = Boolean.parseBoolean(p.getProperty("swingThroughEnabled", "false").trim());
+        for (int i = 0; i < binds.length; i++) {
+            try {
+                binds[i] = Integer.parseInt(p.getProperty("bind" + i, "-1").trim());
+            } catch (NumberFormatException e) {
+                binds[i] = -1;
+            }
+        }
     }
 }
