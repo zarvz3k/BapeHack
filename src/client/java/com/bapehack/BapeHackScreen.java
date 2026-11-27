@@ -9,6 +9,7 @@ import net.minecraft.util.Util;
 public class BapeHackScreen extends Screen {
 
     private static final int PW = 320;
+    private static final int PH = 150;
     private static final int TOP = 10;
     private static final long ANIM_MS = 300;
 
@@ -35,7 +36,7 @@ public class BapeHackScreen extends Screen {
         super(Text.literal("BapeHack"));
     }
 
-    private int ph() { return this.height - TOP; }
+    private int ph() { return PH; }
     private int px() { return (this.width - PW) / 2; }
     private int py() { return TOP + offY; }
 
@@ -150,6 +151,12 @@ public class BapeHackScreen extends Screen {
             c.drawText(this.textRenderer, "NameProtect", nx + 10, ny + 11, TEXT, false);
             c.drawText(this.textRenderer, ">", nx + nw - 46, ny + 11, TEXT_DIM, false);
             toggle(c, nx + nw - 36, ny + 9, BapeHackClient.nameProtectEnabled);
+
+            // SwingThrough (prawa polowa, drugi rzad, bez strzalki)
+            int sx = cardX(1), sy = cardY(1), sw = cardW(false);
+            rrect(c, sx, sy, sw, CH, 6, in(mx, my, sx, sy, sw, CH) ? CARD_HOVER : CARD);
+            c.drawText(this.textRenderer, "SwingThrough", sx + 10, sy + 11, TEXT, false);
+            toggle(c, sx + sw - 36, sy + 9, BapeHackClient.swingThroughEnabled);
         } else if (page == 1) {
             header(c, mx, my, "HideCart");
             row(c, mx, my, 0, "Ukryj wagony", BapeHackClient.hideMinecarts);
@@ -182,6 +189,12 @@ public class BapeHackScreen extends Screen {
         if (closing) return true;
 
         if (page == 0) {
+            if (in(mx, my, cardX(1), cardY(1), cardW(false), CH)) {
+                if (button == 0) {
+                    BapeHackClient.swingThroughEnabled = !BapeHackClient.swingThroughEnabled;
+                }
+                return true;
+            }
             if (in(mx, my, cardX(1), cardY(0), cardW(false), CH)) {
                 if (button == 0) {
                     BapeHackClient.antyItemFrameEnabled = !BapeHackClient.antyItemFrameEnabled;
