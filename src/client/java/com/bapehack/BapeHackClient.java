@@ -25,6 +25,8 @@ import java.nio.file.Path;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BapeHackClient implements ClientModInitializer {
 
@@ -53,10 +55,19 @@ public class BapeHackClient implements ClientModInitializer {
     public static boolean swingScan = false;
 
     // powiadomienie nad sercami
-    private static final long NOTICE_MS = 500;
-    private static String noticeName = null;
-    private static boolean noticeOn = false;
-    private static long noticeStart = 0;
+    private static final long NOTICE_HOLD_MS = 1250;
+    private static final long NOTICE_FADE_MS = 250;
+    private static final class Notice {
+        final String name;
+        final boolean on;
+        final long start;
+        Notice(String name, boolean on, long start) {
+            this.name = name;
+            this.on = on;
+            this.start = start;
+        }
+    }
+    private static final List<Notice> notices = new ArrayList<>();
 
     private static KeyBinding menuKey;
 
@@ -125,9 +136,8 @@ public class BapeHackClient implements ClientModInitializer {
             case 2 -> nameProtectEnabled = now;
             default -> swingThroughEnabled = now;
         }
-        noticeName = MODULE_NAMES[id];
-        noticeOn = now;
-        noticeStart = Util.getMeasuringTimeMs();
+        notices.add(new Notice(MODULE_NAMES[id], now, Util.getMeasuringTimeMs()));
+        if (notices.size() > 8) notices.remove(0);
     }
 
     public static String keyName(int code) {
@@ -137,29 +147,37 @@ public class BapeHackClient implements ClientModInitializer {
     // ---------------- powiadomienie ----------------
 
     private static void renderNotice(DrawContext ctx) {
-        if (noticeName == null) return;
+        if (notices.isEmpty()) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.options.hudHidden) return;
 
-        float t = (Util.getMeasuringTimeMs() - noticeStart) / (float) NOTICE_MS;
-        if (t >= 1.0f) {
-            noticeName = null;
-            return;
+        long now = Util.getMeasuringTimeMs();
+        notices.removeIf(n -> now - n.start >= NOTICE_HOLD_MS + NOTICE_FADE_MS);
+
+        int baseY = ctx.getScaledWindowHeight() - 72; // nad sercami
+        int count = notices.size();
+        for (int i = 0; i < count; i++) {
+            Notice n = notices.get(i);
+            long age = now - n.start;
+
+            int a = 255;
+            if (age > NOTICE_HOLD_MS) {
+                a = (int) (255 * (1.0f - (age - NOTICE_HOLD_MS) / (float) NOTICE_FADE_MS));
+            }
+            if (a < 12) continue; // vanilla traktuje bardzo male alfa jako pelne krycie
+
+            int white = (a << 24) | 0xFFFFFF;
+            int state = (a << 24) | (n.on ? 0x55FF55 : 0xFF5555);
+
+            String left = n.name + " - ";
+            String right = n.on ? "ON" : "OFF";
+            int total = mc.textRenderer.getWidth(left) + mc.textRenderer.getWidth(right);
+            int x = (ctx.getScaledWindowWidth() - total) / 2;
+            int y = baseY - (count - 1 - i) * 11; // najnowsze na dole, starsze wyzej
+
+            ctx.drawTextWithShadow(mc.textRenderer, left, x, y, white);
+            ctx.drawTextWithShadow(mc.textRenderer, right, x + mc.textRenderer.getWidth(left), y, state);
         }
-        int a = (int) (255 * (1.0f - t));
-        if (a < 12) return; // vanilla traktuje bardzo male alfa jako pelne krycie
-
-        int white = (a << 24) | 0xFFFFFF;
-        int state = (a << 24) | (noticeOn ? 0x55FF55 : 0xFF5555);
-
-        String left = noticeName + " - ";
-        String right = noticeOn ? "ON" : "OFF";
-        int total = mc.textRenderer.getWidth(left) + mc.textRenderer.getWidth(right);
-        int x = (ctx.getScaledWindowWidth() - total) / 2;
-        int y = ctx.getScaledWindowHeight() - 72; // nad sercami
-
-        ctx.drawTextWithShadow(mc.textRenderer, left, x, y, white);
-        ctx.drawTextWithShadow(mc.textRenderer, right, x + mc.textRenderer.getWidth(left), y, state);
     }
 
     // ---------------- SwingThrough ----------------
