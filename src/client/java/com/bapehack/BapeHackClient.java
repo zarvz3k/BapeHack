@@ -77,12 +77,10 @@ public class BapeHackClient implements ClientModInitializer {
         });
     }
 
-    // SwingThrough: czy w tym raycascie pomijac bloki (tylko z mieczem/siekiera)
+    // SwingThrough: pomijaj bloki w raycascie niezaleznie od przedmiotu w rece
     public static void updateSwingScan() {
         MinecraftClient mc = MinecraftClient.getInstance();
-        swingScan = swingThroughEnabled && mc.player != null
-                && (mc.player.getMainHandStack().isIn(ItemTags.SWORDS)
-                || mc.player.getMainHandStack().isIn(ItemTags.AXES));
+        swingScan = swingThroughEnabled && mc.player != null;
     }
 
     public static boolean isSwingBlock(BlockState s) {
