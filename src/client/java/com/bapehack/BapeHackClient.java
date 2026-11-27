@@ -13,6 +13,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
@@ -22,11 +23,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.ArrayList;
-import java.util.List;
 
 public class BapeHackClient implements ClientModInitializer {
 
@@ -54,9 +55,9 @@ public class BapeHackClient implements ClientModInitializer {
     public static boolean swingThroughEnabled = false;
     public static boolean swingScan = false;
 
-    // powiadomienie nad sercami
-    private static final long NOTICE_HOLD_MS = 1250;
-    private static final long NOTICE_FADE_MS = 250;
+    // powiadomienie nad sercami: 0.5 s pelne + 0.5 s fade out
+    private static final long NOTICE_HOLD_MS = 500;
+    private static final long NOTICE_FADE_MS = 500;
     private static final class Notice {
         final String name;
         final boolean on;
@@ -182,6 +183,7 @@ public class BapeHackClient implements ClientModInitializer {
 
     // ---------------- SwingThrough ----------------
 
+    // pomijaj bloki w raycascie tylko z mieczem lub siekiera w rece
     public static void updateSwingScan() {
         MinecraftClient mc = MinecraftClient.getInstance();
         swingScan = swingThroughEnabled && mc.player != null
